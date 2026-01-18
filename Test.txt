@@ -1,0 +1,3 @@
+To start the site:
+
+    npx cross-env NODE_ENV=development tsx server/index.ts
