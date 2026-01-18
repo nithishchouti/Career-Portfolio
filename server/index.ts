@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -59,8 +60,13 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
-  await registerRoutes(httpServer, app);
+let routesRegistered = false;
+
+const setupApp = async () => {
+  if (!routesRegistered) {
+    await registerRoutes(httpServer, app);
+    routesRegistered = true;
+  }
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -85,18 +91,25 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
+  return app;
+};
+
+(async () => {
+  const app = await setupApp();
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "127.0.0.1",
-    },
-    () => {
+  if (!process.env.VERCEL) {
+    const port = parseInt(process.env.PORT || "5000", 10);
+    httpServer.listen({ port, host: "0.0.0.0" }, () => {
       log(`serving on port ${port}`);
-    },
-  );
+    });
+  }
 })();
+
+export default async (req: Request, res: Response) => {
+  const app = await setupApp();
+  app(req, res);
+};
